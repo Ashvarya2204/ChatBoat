@@ -1,70 +1,75 @@
 import { useState, useRef, useEffect } from 'react';
 
-// Language Detection Function
-function detectLanguage(text) {
-  const hindiRegex = /[\u0900-\u097F]/;
-  const englishRegex = /[a-zA-Z]/;
-  
-  if (hindiRegex.test(text)) {
-    return 'hi-IN';
-  } else if (englishRegex.test(text)) {
-    return 'en-US';
-  }
-  return 'en-US';
-}
-
 function VoiceAssistant() {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [response, setResponse] = useState('');
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [currentLanguage, setCurrentLanguage] = useState('en-US');
   const [chatHistory, setChatHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   
   const recognitionRef = useRef(null);
+  const currentLangRef = useRef('en-US');
+  const attemptCountRef = useRef(0);
 
-  // Speech Recognition Setup
+  // Setup SINGLE recognition that switches languages intelligently
   useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      
       const recognition = new SpeechRecognition();
-      
       recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.lang = currentLanguage;
-      
-      recognition.onstart = () => {
-        console.log('🎤 Listening started');
-      };
+      recognition.interimResults = true; // Enable interim results to see what's being captured
+      recognition.lang = 'en-US'; // Start with English
       
       recognition.onresult = (event) => {
-        const text = event.results[0][0].transcript;
-        console.log('📝 You said:', text);
-        setTranscript(text);
+        const result = event.results[event.results.length - 1];
+        const text = result[0].transcript;
+        const isFinal = result.isFinal;
         
-        const detectedLang = detectLanguage(text);
-        console.log('🌐 Detected language:', detectedLang);
-        setCurrentLanguage(detectedLang);
-        
-        processQuery(text, detectedLang);
+        if (isFinal) {
+          console.log('📝 Final transcript:', text);
+          console.log('🌐 Language used:', recognition.lang);
+          
+          setTranscript(text);
+          setIsListening(false);
+          
+          // Determine which language to respond in
+          const detectedLang = detectLanguageFromText(text);
+          console.log('🔍 Detected response language:', detectedLang);
+          
+          processQuery(text, detectedLang);
+        } else {
+          console.log('📝 Interim:', text);
+        }
       };
       
       recognition.onerror = (event) => {
-        console.error('❌ Error:', event.error);
-        setIsListening(false);
+        console.error('❌ Recognition Error:', event.error);
+        
+        // If no-speech error and we're on English, try Hindi
+        if (event.error === 'no-speech' && recognition.lang === 'en-US' && attemptCountRef.current < 1) {
+          console.log('🔄 No speech in English, trying Hindi...');
+          attemptCountRef.current++;
+          recognition.lang = 'hi-IN';
+          setTimeout(() => {
+            try {
+              recognition.start();
+            } catch(e) {
+              console.log('Could not restart:', e);
+              setIsListening(false);
+            }
+          }, 100);
+        } else {
+          setIsListening(false);
+          attemptCountRef.current = 0;
+        }
       };
       
       recognition.onend = () => {
-        console.log('🎤 Stopped listening');
+        console.log('🎤 Recognition ended');
         setIsListening(false);
-        
-        setTimeout(() => {
-          if (!isSpeaking) {
-            console.log('🔄 Auto-restarting listening...');
-            startListening();
-          }
-        }, 2000);
+        attemptCountRef.current = 0;
       };
       
       recognitionRef.current = recognition;
@@ -72,18 +77,53 @@ function VoiceAssistant() {
       console.error('❌ Speech recognition not supported');
       alert('Your browser does not support speech recognition. Please use Chrome, Edge, or Safari.');
     }
-  }, [currentLanguage, isSpeaking]);
+  }, []);
+
+  // Smart language detection from text
+  const detectLanguageFromText = (text) => {
+    // Check for Devanagari script
+    const hindiRegex = /[\u0900-\u097F]/;
+    if (hindiRegex.test(text)) {
+      return 'hi-IN';
+    }
+    
+    // Check for common Hindi words (romanized)
+    const lowerText = text.toLowerCase();
+    const hindiWords = ['kya', 'hai', 'aap', 'tumhara', 'naam', 'school', 'ka', 'ki', 'address', 'number', 'fees', 'admission', 'kahan'];
+    
+    let hindiWordCount = 0;
+    hindiWords.forEach(word => {
+      if (lowerText.includes(word)) hindiWordCount++;
+    });
+    
+    // If 2+ Hindi words detected, respond in Hindi
+    if (hindiWordCount >= 2) {
+      console.log('🇮🇳 Hindi keywords found:', hindiWordCount);
+      return 'hi-IN';
+    }
+    
+    // Default to English
+    return 'en-US';
+  };
 
   // Welcome message on mount
   useEffect(() => {
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      console.log('📢 Available voices:', voices.map(v => `${v.name} (${v.lang})`));
+    };
+    
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    
     setTimeout(() => {
       speakWelcome();
     }, 1500);
   }, []);
 
   const speakWelcome = () => {
-    const msgEn = "Welcome to M K V V School! I am Siri. How may I help you today?";
-    const msgHi = "एम के वी वी स्कूल में आपका स्वागत है! मैं सिरी हूं।";
+    const msgEn = "Welcome to M K V V School! I am Siri. You can speak in English or Hindi. How may I help you today?";
+    const msgHi = "एम के वी वी स्कूल में आपका स्वागत है! मैं सिरी हूं। आप अंग्रेजी या हिंदी में बोल सकते हैं।";
     
     speak(msgEn, 'en-US', () => {
       setTimeout(() => {
@@ -99,9 +139,25 @@ function VoiceAssistant() {
     setIsSpeaking(true);
     
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = language || currentLanguage;
+    utterance.lang = language;
     utterance.rate = 0.9;
     utterance.pitch = 1.0;
+    
+    if (language === 'hi-IN') {
+      const voices = window.speechSynthesis.getVoices();
+      const hindiVoice = voices.find(voice => 
+        voice.lang.startsWith('hi') || 
+        voice.lang === 'hi-IN' ||
+        voice.name.includes('Hindi')
+      );
+      
+      if (hindiVoice) {
+        utterance.voice = hindiVoice;
+        console.log('✅ Using Hindi voice:', hindiVoice.name);
+      } else {
+        console.warn('⚠️ No Hindi voice found, using default');
+      }
+    }
     
     utterance.onend = () => {
       console.log('✅ Speech finished');
@@ -109,14 +165,14 @@ function VoiceAssistant() {
       
       if (callback) {
         callback();
+      } else {
+        setTimeout(() => {
+          if (!isListening) {
+            console.log('🔄 Restarting listening after speech...');
+            startListening();
+          }
+        }, 1500);
       }
-      
-      setTimeout(() => {
-        if (!isListening) {
-          console.log('🔄 Restarting listening after speech...');
-          startListening();
-        }
-      }, 1500);
     };
     
     utterance.onerror = (event) => {
@@ -133,21 +189,32 @@ function VoiceAssistant() {
   };
 
   const startListening = () => {
-    if (recognitionRef.current && !isSpeaking && !isListening) {
+    if (!isSpeaking && !isListening && recognitionRef.current) {
       try {
-        recognitionRef.current.lang = currentLanguage;
-        recognitionRef.current.start();
+        console.log('🎤 Starting recognition...');
         setIsListening(true);
+        attemptCountRef.current = 0;
+        
+        // Start with English first
+        recognitionRef.current.lang = 'en-US';
+        recognitionRef.current.start();
+        
       } catch (error) {
         console.error('Error starting recognition:', error);
+        setIsListening(false);
       }
     }
   };
 
   const stopListening = () => {
-    if (recognitionRef.current && isListening) {
-      recognitionRef.current.stop();
+    if (isListening && recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch(e) {
+        console.log('Error stopping:', e);
+      }
       setIsListening(false);
+      attemptCountRef.current = 0;
     }
   };
 
@@ -185,10 +252,12 @@ function VoiceAssistant() {
         setChatHistory(prev => [...prev, { 
           query, 
           response: finalResponse, 
-          timestamp: new Date()
+          timestamp: new Date(),
+          language: language
         }]);
 
         setTimeout(() => {
+          console.log('🔊 Speaking response in:', language);
           speak(finalResponse, language);
         }, 500);
       } else {
@@ -244,7 +313,7 @@ function VoiceAssistant() {
               </div>
               <div>
                 <h1 className="text-3xl font-bold text-white">MKVV School</h1>
-                <p className="text-blue-100 text-sm">AI Voice Assistant - Powered by Gemini</p>
+                <p className="text-blue-100 text-sm">AI Voice Assistant - Bilingual (English & हिंदी)</p>
               </div>
             </div>
           </div>
@@ -264,7 +333,7 @@ function VoiceAssistant() {
                 <div className="relative">
                   <div className={`w-48 h-48 rounded-full flex items-center justify-center transition-all duration-300 ${
                     isListening 
-                      ? 'bg-gradient-to-br from-green-400 to-emerald-500 shadow-2xl shadow-green-500/50 scale-110' 
+                      ? 'bg-gradient-to-br from-green-400 to-emerald-500 shadow-2xl shadow-green-500/50 scale-110 animate-pulse' 
                       : isSpeaking 
                         ? 'bg-gradient-to-br from-blue-400 to-indigo-500 shadow-2xl shadow-blue-500/50 scale-110' 
                         : 'bg-gradient-to-br from-gray-400 to-gray-500 shadow-xl'
@@ -286,12 +355,12 @@ function VoiceAssistant() {
                   </div>
                 </div>
 
-                {/* Current Language */}
-                <div className="text-center">
-                  <p className="text-sm text-gray-500 mb-1">Current Language</p>
-                  <p className="text-lg font-semibold text-gray-800">
-                    {currentLanguage === 'hi-IN' ? '🇮🇳 हिंदी' : '🇬🇧 English'}
+                {/* Info Badge */}
+                <div className="text-center bg-gradient-to-r from-blue-50 to-purple-50 px-6 py-3 rounded-xl">
+                  <p className="text-sm font-semibold text-gray-700">
+                    🌐 Speak in <span className="text-blue-600">English</span> or <span className="text-orange-600">हिंदी</span>
                   </p>
+                  <p className="text-xs text-gray-500 mt-1">I'll automatically understand and respond!</p>
                 </div>
 
                 {/* Control Buttons */}
@@ -344,22 +413,22 @@ function VoiceAssistant() {
                       📍 Address
                     </button>
                     <button 
+                      onClick={() => handleQuickQuestion('स्कूल का पता क्या है', 'hi-IN')} 
+                      className="px-4 py-3 bg-gradient-to-br from-orange-50 to-amber-50 text-orange-700 rounded-xl hover:from-orange-100 hover:to-amber-100 text-sm font-medium transition-all duration-200 hover:scale-105 shadow-sm hover:shadow-md"
+                    >
+                      📍 पता
+                    </button>
+                    <button 
                       onClick={() => handleQuickQuestion('admission process', 'en-US')} 
                       className="px-4 py-3 bg-gradient-to-br from-purple-50 to-pink-50 text-purple-700 rounded-xl hover:from-purple-100 hover:to-pink-100 text-sm font-medium transition-all duration-200 hover:scale-105 shadow-sm hover:shadow-md"
                     >
                       📝 Admission
                     </button>
                     <button 
-                      onClick={() => handleQuickQuestion('fee structure', 'en-US')} 
+                      onClick={() => handleQuickQuestion('फीस कितनी है', 'hi-IN')} 
                       className="px-4 py-3 bg-gradient-to-br from-green-50 to-emerald-50 text-green-700 rounded-xl hover:from-green-100 hover:to-emerald-100 text-sm font-medium transition-all duration-200 hover:scale-105 shadow-sm hover:shadow-md"
                     >
-                      💰 Fees
-                    </button>
-                    <button 
-                      onClick={() => handleQuickQuestion('contact number', 'en-US')} 
-                      className="px-4 py-3 bg-gradient-to-br from-orange-50 to-red-50 text-orange-700 rounded-xl hover:from-orange-100 hover:to-red-100 text-sm font-medium transition-all duration-200 hover:scale-105 shadow-sm hover:shadow-md"
-                    >
-                      📞 Contact
+                      💰 फीस
                     </button>
                   </div>
                 </div>
@@ -432,7 +501,8 @@ function VoiceAssistant() {
                   <svg className="w-24 h-24 mb-4 opacity-50" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd"/>
                   </svg>
-                  <p className="text-lg font-medium">Ask me anything about MKVV School!</p>
+                  <p className="text-lg font-medium">Ask me anything in English or Hindi!</p>
+                  <p className="text-sm mt-2">अंग्रेजी या हिंदी में कुछ भी पूछें!</p>
                 </div>
               )}
             </div>
@@ -454,8 +524,16 @@ function VoiceAssistant() {
             <div className="space-y-4 max-h-96 overflow-y-auto">
               {chatHistory.slice().reverse().map((item, idx) => (
                 <div key={idx} className="border-b border-gray-200 pb-4 last:border-0">
-                  <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl mb-3">
-                    <p className="text-xs font-bold text-blue-600 mb-1">QUESTION</p>
+                  <div className={`p-4 rounded-xl mb-3 ${
+                    item.language === 'hi-IN' 
+                      ? 'bg-gradient-to-r from-orange-50 to-amber-50' 
+                      : 'bg-gradient-to-r from-blue-50 to-indigo-50'
+                  }`}>
+                    <p className={`text-xs font-bold mb-1 ${
+                      item.language === 'hi-IN' ? 'text-orange-600' : 'text-blue-600'
+                    }`}>
+                      QUESTION {item.language === 'hi-IN' ? '(हिंदी)' : '(English)'}
+                    </p>
                     <p className="text-gray-800">{item.query}</p>
                   </div>
                   <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl">
