@@ -1,0 +1,331 @@
+            @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+
+            * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            }
+
+            body {
+            font-family: 'Poppins', sans-serif;
+            overflow-x: hidden;
+            }
+
+            .school-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            }
+
+            .school-header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }
+
+            .school-logo {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 12px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            }
+
+            .mic-button {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+            }
+
+            .mic-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
+            }
+
+            .mic-button.listening {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            animation: pulse 1.5s infinite;
+            }
+
+            @keyframes pulse {
+            0%, 100% {
+                box-shadow: 0 10px 30px rgba(239, 68, 68, 0.4);
+            }
+            50% {
+                box-shadow: 0 15px 50px rgba(239, 68, 68, 0.8);
+            }
+            }
+
+            @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            }
+
+            .animate-fadeIn {
+            animation: fadeIn 0.3s ease-out;
+            }
+
+            .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            }
+
+            .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+            }
+
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 10px;
+            }
+
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #764ba2;
+            }
+
+            /* ========== 3D AVATAR STYLES ========== */
+
+            .avatar-3d-container {
+            width: 300px;
+            height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            perspective: 1000px;
+            margin: 0 auto;
+            }
+
+            .avatar-3d {
+            width: 200px;
+            height: 350px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.3s ease;
+            }
+
+            .avatar-3d.listening {
+            animation: nod 1.5s ease-in-out infinite;
+            }
+
+            .avatar-3d.speaking {
+            animation: speak-nod 0.5s ease-in-out infinite;
+            }
+
+            @keyframes nod {
+            0%, 100% { transform: rotateX(0deg); }
+            50% { transform: rotateX(5deg); }
+            }
+
+            @keyframes speak-nod {
+            0%, 100% { transform: rotateX(0deg) scale(1); }
+            50% { transform: rotateX(3deg) scale(1.02); }
+            }
+
+            /* Head */
+            .avatar-head {
+            width: 180px;
+            height: 220px;
+            position: relative;
+            margin: 0 auto;
+            }
+
+            .avatar-hair {
+            width: 180px;
+            height: 90px;
+            background: linear-gradient(135deg, #1a1a1a 0%, #333 100%);
+            border-radius: 90px 90px 0 0;
+            position: absolute;
+            top: -10px;
+            left: 0;
+            z-index: 1;
+            }
+
+            .avatar-face-3d {
+            width: 160px;
+            height: 200px;
+            background: linear-gradient(135deg, #fdbcb4 0%, #faa094 100%);
+            border-radius: 80px 80px 100px 100px;
+            position: relative;
+            margin: 20px auto 0;
+            box-shadow: inset 0 -20px 30px rgba(0,0,0,0.1);
+            }
+
+            /* Eyes */
+            .eyes-container {
+            display: flex;
+            gap: 50px;
+            justify-content: center;
+            padding-top: 70px;
+            }
+
+            .eye-3d {
+            width: 30px;
+            height: 30px;
+            background: white;
+            border-radius: 50%;
+            position: relative;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.1);
+            }
+
+            .pupil {
+            width: 15px;
+            height: 15px;
+            background: #1a1a1a;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation: eye-move 4s infinite;
+            }
+
+            @keyframes eye-move {
+            0%, 100% { transform: translate(-50%, -50%); }
+            25% { transform: translate(-40%, -50%); }
+            75% { transform: translate(-60%, -50%); }
+            }
+
+            /* Nose */
+            .nose-3d {
+            width: 15px;
+            height: 20px;
+            background: linear-gradient(135deg, #f5a89a 0%, #f29384 100%);
+            border-radius: 0 50% 50% 50%;
+            position: absolute;
+            top: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            box-shadow: -2px 2px 5px rgba(0,0,0,0.1);
+            }
+
+            /* Mouth */
+            .mouth-3d {
+            width: 60px;
+            height: 30px;
+            border: 3px solid #c97c6e;
+            border-top: none;
+            border-radius: 0 0 60px 60px;
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            transition: all 0.2s ease;
+            }
+
+            .mouth-3d.talking {
+            animation: mouth-talk-3d 0.3s infinite;
+            }
+
+            @keyframes mouth-talk-3d {
+            0%, 100% {
+                height: 20px;
+                border-radius: 0 0 40px 40px;
+            }
+            50% {
+                height: 35px;
+                border-radius: 50%;
+                border: 3px solid #c97c6e;
+            }
+            }
+
+            /* Body */
+            .avatar-body {
+            width: 200px;
+            height: 150px;
+            position: relative;
+            margin-top: -20px;
+            }
+
+            .shirt {
+            width: 180px;
+            height: 120px;
+            background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+            border-radius: 0 0 80px 80px / 0 0 40px 40px;
+            margin: 0 auto;
+            position: relative;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            }
+
+            .shirt::before {
+            content: '';
+            width: 40px;
+            height: 80px;
+            background: linear-gradient(135deg, #5a6678 0%, #3d4758 100%);
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 0 0 10px 10px;
+            }
+
+            /* Hands */
+            .hand {
+            width: 50px;
+            height: 80px;
+            background: linear-gradient(135deg, #fdbcb4 0%, #faa094 100%);
+            border-radius: 25px;
+            position: absolute;
+            top: 20px;
+            }
+
+            .hand.left {
+            left: -10px;
+            transform: rotate(-10deg);
+            }
+
+            .hand.right {
+            right: -10px;
+            transform: rotate(10deg);
+            }
+
+            .hand.waving {
+            animation: wave-hand 2s ease-in-out infinite;
+            transform-origin: top center;
+            }
+
+            @keyframes wave-hand {
+            0%, 100% {
+                transform: rotate(10deg);
+            }
+            25% {
+                transform: rotate(-5deg);
+            }
+            50% {
+                transform: rotate(15deg);
+            }
+            75% {
+                transform: rotate(0deg);
+            }
+            }
+
+            /* Responsive */
+            @media (max-width: 768px) {
+            .school-header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .mic-button {
+                width: 120px;
+                height: 120px;
+            }
+            
+            .avatar-3d-container {
+                width: 250px;
+                height: 350px;
+            }
+            
+            .avatar-3d {
+                transform: scale(0.85);
+            }
+            }
