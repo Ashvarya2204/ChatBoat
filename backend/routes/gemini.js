@@ -249,7 +249,7 @@ Answer:`;
       model: 'gemini-2.5-flash',
       generationConfig: {
         temperature: 0.3,
-        maxOutputTokens: 1000,
+        maxOutputTokens:500,
       }
     });
 

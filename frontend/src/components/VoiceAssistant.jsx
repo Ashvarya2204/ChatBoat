@@ -47,6 +47,12 @@ function VoiceAssistant() {
       recognition.onerror = (event) => {
         console.error('❌ Recognition Error:', event.error);
         
+        // Ignore 'aborted' errors (they're harmless)
+        if (event.error === 'aborted') {
+          console.log('ℹ️ Recognition aborted (harmless)');
+          return;
+        }
+        
         // If no-speech error and we're on English, try Hindi
         if (event.error === 'no-speech' && recognition.lang === 'en-US' && attemptCountRef.current < 1) {
           console.log('🔄 No speech in English, trying Hindi...');
@@ -125,10 +131,16 @@ function VoiceAssistant() {
     const msgEn = "Welcome to M K V V School! I am Siri. You can speak in English or Hindi. How may I help you today?";
     const msgHi = "एम के वी वी स्कूल में आपका स्वागत है! मैं सिरी हूं। आप अंग्रेजी या हिंदी में बोल सकते हैं।";
     
+    // Cancel any existing speech first
+    window.speechSynthesis.cancel();
+    
     speak(msgEn, 'en-US', () => {
       setTimeout(() => {
         speak(msgHi, 'hi-IN', () => {
-          setTimeout(() => startListening(), 1000);
+          setTimeout(() => {
+            console.log('🎤 Welcome complete, starting listening...');
+            startListening();
+          }, 1000);
         });
       }, 500);
     });
@@ -136,71 +148,100 @@ function VoiceAssistant() {
 
   const speak = (text, language, callback) => {
     console.log('🔊 Speaking in', language, ':', text.substring(0, 50) + '...');
-    setIsSpeaking(true);
     
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = language;
-    utterance.rate = 0.9;
-    utterance.pitch = 1.0;
+    // Cancel any existing speech
+    window.speechSynthesis.cancel();
     
-    if (language === 'hi-IN') {
-      const voices = window.speechSynthesis.getVoices();
-      const hindiVoice = voices.find(voice => 
-        voice.lang.startsWith('hi') || 
-        voice.lang === 'hi-IN' ||
-        voice.name.includes('Hindi')
-      );
+    // Small delay to ensure cancellation completes
+    setTimeout(() => {
+      setIsSpeaking(true);
       
-      if (hindiVoice) {
-        utterance.voice = hindiVoice;
-        console.log('✅ Using Hindi voice:', hindiVoice.name);
-      } else {
-        console.warn('⚠️ No Hindi voice found, using default');
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = language;
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      
+      if (language === 'hi-IN') {
+        const voices = window.speechSynthesis.getVoices();
+        const hindiVoice = voices.find(voice => 
+          voice.lang.startsWith('hi') || 
+          voice.lang === 'hi-IN' ||
+          voice.name.includes('Hindi')
+        );
+        
+        if (hindiVoice) {
+          utterance.voice = hindiVoice;
+          console.log('✅ Using Hindi voice:', hindiVoice.name);
+        } else {
+          console.warn('⚠️ No Hindi voice found, using default');
+        }
       }
-    }
-    
-    utterance.onend = () => {
-      console.log('✅ Speech finished');
-      setIsSpeaking(false);
       
-      if (callback) {
-        callback();
-      } else {
+      utterance.onend = () => {
+        console.log('✅ Speech finished');
+        setIsSpeaking(false);
+        
+        if (callback) {
+          callback();
+        } else {
+          setTimeout(() => {
+            if (!isListening) {
+              console.log('🔄 Restarting listening after speech...');
+              startListening();
+            }
+          }, 1500);
+        }
+      };
+      
+      utterance.onerror = (event) => {
+        console.error('❌ Speech error:', event.error);
+        setIsSpeaking(false);
+        
+        // Don't restart if error was "interrupted" or "not-allowed"
+        if (event.error === 'interrupted' || event.error === 'not-allowed') {
+          console.log('ℹ️ Speech was interrupted (this is normal)');
+          return;
+        }
+        
         setTimeout(() => {
           if (!isListening) {
-            console.log('🔄 Restarting listening after speech...');
             startListening();
           }
-        }, 1500);
-      }
-    };
-    
-    utterance.onerror = (event) => {
-      console.error('❌ Speech error:', event);
-      setIsSpeaking(false);
+        }, 1000);
+      };
       
-      setTimeout(() => {
-        startListening();
-      }, 1000);
-    };
-    
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
+      window.speechSynthesis.speak(utterance);
+    }, 100);
   };
 
   const startListening = () => {
     if (!isSpeaking && !isListening && recognitionRef.current) {
       try {
-        console.log('🎤 Starting recognition...');
-        setIsListening(true);
-        attemptCountRef.current = 0;
+        // Stop any existing recognition first
+        try {
+          recognitionRef.current.stop();
+        } catch(e) {
+          // Ignore errors from stopping
+        }
         
-        // Start with English first
-        recognitionRef.current.lang = 'en-US';
-        recognitionRef.current.start();
+        // Wait a bit before starting new recognition
+        setTimeout(() => {
+          try {
+            console.log('🎤 Starting recognition...');
+            setIsListening(true);
+            attemptCountRef.current = 0;
+            
+            // Start with English first
+            recognitionRef.current.lang = 'en-US';
+            recognitionRef.current.start();
+          } catch (error) {
+            console.error('Error starting recognition:', error);
+            setIsListening(false);
+          }
+        }, 200);
         
       } catch (error) {
-        console.error('Error starting recognition:', error);
+        console.error('Error in startListening:', error);
         setIsListening(false);
       }
     }
@@ -279,13 +320,9 @@ function VoiceAssistant() {
   };
 
   const stopSpeaking = () => {
-    console.log('⏹️ Stopped speaking manually');
+    console.log('⏹️ Stopping speech...');
     window.speechSynthesis.cancel();
     setIsSpeaking(false);
-    
-    setTimeout(() => {
-      startListening();
-    }, 1000);
   };
 
   const clearHistory = () => {
