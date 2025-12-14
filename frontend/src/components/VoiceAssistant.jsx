@@ -7,6 +7,7 @@ function VoiceAssistant() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false); // Track if user has started
   
   const recognitionRef = useRef(null);
   const currentLangRef = useRef('en-US');
@@ -112,19 +113,15 @@ function VoiceAssistant() {
     return 'en-US';
   };
 
-  // Welcome message on mount
+  // Welcome message - ONLY load voices, don't speak automatically
   useEffect(() => {
     const loadVoices = () => {
       const voices = window.speechSynthesis.getVoices();
-      console.log('📢 Available voices:', voices.map(v => `${v.name} (${v.lang})`));
+      console.log('📢 Available voices:', voices.length);
     };
     
     loadVoices();
     window.speechSynthesis.onvoiceschanged = loadVoices;
-    
-    setTimeout(() => {
-      speakWelcome();
-    }, 1500);
   }, []);
 
   const speakWelcome = () => {
@@ -134,16 +131,53 @@ function VoiceAssistant() {
     // Cancel any existing speech first
     window.speechSynthesis.cancel();
     
+    // Speak English first
     speak(msgEn, 'en-US', () => {
       setTimeout(() => {
+        // Then speak Hindi
         speak(msgHi, 'hi-IN', () => {
+          // After BOTH messages, start listening
           setTimeout(() => {
             console.log('🎤 Welcome complete, starting listening...');
-            startListening();
+            actuallyStartListening(); // Use direct start function, not the wrapper
           }, 1000);
         });
       }, 500);
     });
+  };
+
+  // Separate function for actual recognition start (without welcome check)
+  const actuallyStartListening = () => {
+    if (!isSpeaking && !isListening && recognitionRef.current) {
+      try {
+        // Stop any existing recognition first
+        try {
+          recognitionRef.current.stop();
+        } catch(e) {
+          // Ignore errors from stopping
+        }
+        
+        // Wait a bit before starting new recognition
+        setTimeout(() => {
+          try {
+            console.log('🎤 Starting recognition...');
+            setIsListening(true);
+            attemptCountRef.current = 0;
+            
+            // Start with English first
+            recognitionRef.current.lang = 'en-US';
+            recognitionRef.current.start();
+          } catch (error) {
+            console.error('Error starting recognition:', error);
+            setIsListening(false);
+          }
+        }, 200);
+        
+      } catch (error) {
+        console.error('Error in startListening:', error);
+        setIsListening(false);
+      }
+    }
   };
 
   const speak = (text, language, callback) => {
@@ -181,13 +215,16 @@ function VoiceAssistant() {
         console.log('✅ Speech finished');
         setIsSpeaking(false);
         
+        // If there's a callback (like from welcome message), use it
         if (callback) {
           callback();
-        } else {
+        } 
+        // Otherwise, only auto-restart if we're NOT in the welcome flow
+        else if (hasStarted) {
           setTimeout(() => {
             if (!isListening) {
               console.log('🔄 Restarting listening after speech...');
-              startListening();
+              actuallyStartListening();
             }
           }, 1500);
         }
@@ -216,34 +253,15 @@ function VoiceAssistant() {
 
   const startListening = () => {
     if (!isSpeaking && !isListening && recognitionRef.current) {
-      try {
-        // Stop any existing recognition first
-        try {
-          recognitionRef.current.stop();
-        } catch(e) {
-          // Ignore errors from stopping
-        }
-        
-        // Wait a bit before starting new recognition
-        setTimeout(() => {
-          try {
-            console.log('🎤 Starting recognition...');
-            setIsListening(true);
-            attemptCountRef.current = 0;
-            
-            // Start with English first
-            recognitionRef.current.lang = 'en-US';
-            recognitionRef.current.start();
-          } catch (error) {
-            console.error('Error starting recognition:', error);
-            setIsListening(false);
-          }
-        }, 200);
-        
-      } catch (error) {
-        console.error('Error in startListening:', error);
-        setIsListening(false);
+      // If this is the first time, speak welcome message ONCE
+      if (!hasStarted) {
+        setHasStarted(true);
+        speakWelcome(); // This will call actuallyStartListening() when done
+        return; // Exit here - don't start listening yet
       }
+      
+      // For all subsequent calls, just start listening
+      actuallyStartListening();
     }
   };
 
@@ -402,7 +420,19 @@ function VoiceAssistant() {
 
                 {/* Control Buttons */}
                 <div className="flex gap-4">
-                  {!isListening && !isSpeaking && (
+                  {!isListening && !isSpeaking && !hasStarted && (
+                    <button 
+                      onClick={startListening} 
+                      className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center gap-2 animate-pulse"
+                    >
+                      <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd"/>
+                      </svg>
+                      Click to Start
+                    </button>
+                  )}
+                  
+                  {!isListening && !isSpeaking && hasStarted && (
                     <button 
                       onClick={startListening} 
                       className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center gap-2"
